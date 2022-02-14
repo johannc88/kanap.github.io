@@ -3,121 +3,266 @@ const cart = []
 retrieveItemsFromCache()
 cart.forEach((item) => displayItem(item))
 
+const orderButton = document.querySelector("#order")
+orderButton.addEventListener("click", (e) => submitForm(e))
 
-//altTxt: "Photo d'un canapé jaune et noir, quattre places"
-//color: "Black/Yellow"
-//id: "415b7cacb65d43b2b5c1ff70f3393ad1"
-//imageUrl: "http://localhost:3000/images/kanap02.jpeg"
-//name: "Kanap Cyllène"
-//price: 4499
-//quantity: 1
-
+// Recuperation des élements du cache
 function retrieveItemsFromCache() {
-    const numberOfItems = localStorage.length
-    for (let i = 0; i < numberOfItems; i++) {
-        const item = localStorage.getItem(localStorage.key(i)) || ""
-        const itemObject = JSON.parse(item)
-        cart.push(itemObject)
-    }
+  const numberOfItems = localStorage.length
+  for (let i = 0; i < numberOfItems; i++) {
+    const item = localStorage.getItem(localStorage.key(i)) || ""
+    const itemObject = JSON.parse(item)
+    cart.push(itemObject)
+  }
 }
 
+// afficher l'élément
 function displayItem(item) {
-    const article = makeArticle(item)
-    const imageDiv = makeImageDiv(item)
-    article.appendChild(imageDiv)
-    const cardItemContent =  makeCartContent(item)
-    article.appendChild(cardItemContent)
-    displayArticle(article)
-    displayTotalQuantity(item)
+  const article = makeArticle(item)
+  const imageDiv = makeImageDiv(item)
+  article.appendChild(imageDiv)
+  const cardItemContent = makeCartContent(item)
+  article.appendChild(cardItemContent)
+  displayArticle(article)
+  displayTotalQuantity()
+  displayTotalPrice()
 }
 
-function displayTotalQuantity(item) {
-    const totalQuantity = document.querySelector("#totalQuantity")
-    totalQuantity.textContent = item.quantity
+// afficher la quantité total
+function displayTotalQuantity() {
+  const totalQuantity = document.querySelector("#totalQuantity")
+  const total = cart.reduce((total, item) => total + item.quantity, 0)
+  totalQuantity.textContent = total
 }
 
+// afficher le prix total
+function displayTotalPrice() {
+  const totalPrice = document.querySelector("#totalPrice")
+  const total = cart.reduce((total, item) => total + item.price * item.quantity, 0)
+  totalPrice.textContent = total
+}
+
+// créer le contenu du panier
 function makeCartContent(item) {
-    const cardItemContent = document.createElement("div")
-    cardItemContent.classList.add("cart__item__content")
-    const description =  makeDescription(item)
-    const settings = makeSettings(item)
-    cardItemContent.appendChild(description)
-    cardItemContent.appendChild(settings)
-    return cardItemContent
+  const cardItemContent = document.createElement("div")
+  cardItemContent.classList.add("cart__item__content")
+
+  const description = makeDescription(item)
+  const settings = makeSettings(item)
+
+  cardItemContent.appendChild(description)
+  cardItemContent.appendChild(settings)
+  return cardItemContent
 }
+
+// definir les paramètre
 function makeSettings(item) {
-    const settings = document.createElement("div")
-    settings.classList.add("cart__item__content__settings")
+  const settings = document.createElement("div")
+  settings.classList.add("cart__item__content__settings")
 
-    addQuantityToSettings(settings, item)
-    addDeleteToSettings(settings)
-    return settings
+  addQuantityToSettings(settings, item)
+  addDeleteToSettings(settings, item)
+  return settings
 }
 
-function addDeleteToSettings(settings){
-    const div = document.createElement("div")
-    div.classList.add("cart__item__content__settings__delete")
-    const p = document.createElement("p")
-    p.textContent = "Supprimer"
-    div.appendChild(p)
-    settings.appendChild(div)
+// ajouter la suppresion aux parametres
+function addDeleteToSettings(settings, item) {
+  const div = document.createElement("div")
+  div.classList.add("cart__item__content__settings__delete")
+  div.addEventListener("click", () => deleteItem(item))
 
+  const p = document.createElement("p")
+  p.textContent = "Supprimer"
+  div.appendChild(p)
+  settings.appendChild(div)
 }
 
+// supprimer un élément
+function deleteItem(item) {
+  const itemToDelete = cart.findIndex(
+    (product) => product.id === item.id && product.color === item.color
+  )
+  cart.splice(itemToDelete, 1)
+  displayTotalPrice()
+  displayTotalQuantity()
+  deleteDataFromCache(item)
+  deleteArticleFromPage(item)
+}
+
+// supprimer l'article de la page
+function deleteArticleFromPage(item) {
+  const articleToDelete = document.querySelector(
+    `article[data-id="${item.id}"][data-color="${item.color}"]`
+  )
+  articleToDelete.remove()
+}
+
+// ajouter une quantité
 function addQuantityToSettings(settings, item) {
-    const quantity = document.createElement("div")
-    quantity.classList.add("cart__item__content__quantity")
-    const p = document.createElement("p")
-    p.textContent = "Qté : "
-    quantity.appendChild(p)
-    const input = document.createElement("input")
-    input.type = "number"
-    input.classList.add("itemQuantity")
-    input.name = item.quantity
-    input.min = "1"
-    input.max = "100"
-    input.value = item.quantity
+  const quantity = document.createElement("div")
+  quantity.classList.add("cart__item__content__settings__quantity")
+  const p = document.createElement("p")
+  p.textContent = "Qté : "
+  quantity.appendChild(p)
+  const input = document.createElement("input")
+  input.type = "number"
+  input.classList.add("itemQuantity")
+  input.name = "itemQuantity"
+  input.min = "1"
+  input.max = "100"
+  input.value = item.quantity
+  input.addEventListener("input", () => updatePriceAndQuantity(item.id, input.value, item))
 
-    quantity.appendChild(input)
-    settings.appendChild(quantity)
+  quantity.appendChild(input)
+  settings.appendChild(quantity)
 }
 
+// mise à jour prix et quantité
+function updatePriceAndQuantity(id, newValue, item) {
+  const itemToUpdate = cart.find((item) => item.id === id)
+  itemToUpdate.quantity = Number(newValue)
+  item.quantity = itemToUpdate.quantity
+  displayTotalQuantity()
+  displayTotalPrice()
+  saveNewDataToCache(item)
+}
+
+// supprimer les données du cache
+function deleteDataFromCache(item) {
+  const key = `${item.id}-${item.color}`
+  localStorage.removeItem(key)
+}
+
+// enregistrer les nouvelles données dans le cache
+function saveNewDataToCache(item) {
+  const dataToSave = JSON.stringify(item)
+  const key = `${item.id}-${item.color}`
+  localStorage.setItem(key, dataToSave)
+}
+
+// faire la description
 function makeDescription(item) {
-    const description = document.createElement("div")
-    description.classList.add("cart__item__content__description")
+  const description = document.createElement("div")
+  description.classList.add("cart__item__content__description")
 
-    const h2 = document.createElement("h2")
-    h2.textContent = item.name
+  const h2 = document.createElement("h2")
+  h2.textContent = item.name
+  const p = document.createElement("p")
+  p.textContent = item.color
+  const p2 = document.createElement("p")
+  p2.textContent = item.price + " €"
 
-    const p = document.createElement("p")
-    p.textContent = item.color
-
-    const p2 = document.createElement("p")
-    p2.textContent = item.price + " €"
-
-    description.appendChild(h2)
-    description.appendChild(p)
-    description.appendChild(p2)
-    
-    return description
+  description.appendChild(h2)
+  description.appendChild(p)
+  description.appendChild(p2)
+  return description
 }
 
+// afficher l'article
 function displayArticle(article) {
-    document.querySelector("#cart__items").appendChild(article)
+  document.querySelector("#cart__items").appendChild(article)
 }
+
+// faire l'article
 function makeArticle(item) {
-    const article = document.createElement("article")
-    article.classList.add("card__item")
-    article.dataset.id = item.id
-    article.dataset.color = item.color
-    return article
+  const article = document.createElement("article")
+  article.classList.add("card__item")
+  article.dataset.id = item.id
+  article.dataset.color = item.color
+  return article
 }
+
+// faire l'image
 function makeImageDiv(item) {
-    const div = document.createElement("div")
-    div.classList.add("cart__item__img")
-    const image = document.createElement("img")
-    image.src = item.imageUrl
-    image.alt = item.altTxt
-    div.appendChild(image)
-    return div
+  const div = document.createElement("div")
+  div.classList.add("cart__item__img")
+
+  const image = document.createElement("img")
+  image.src = item.imageUrl
+  image.alt = item.altTxt
+  div.appendChild(image)
+  return div
+}
+
+// soumettre le formuaire
+function submitForm(e) {
+  e.preventDefault()
+  if (cart.length === 0) {
+    alert("Merci de choisr un produit")
+    return
+  }
+
+  if (isFormInvalid()) return
+  if (isEmailInvalid()) return
+  // faire la demande
+  const body = makeRequestBody()
+  fetch("http://localhost:3000/api/products/order", {
+    method: "POST",
+    body: JSON.stringify(body),
+    headers: {
+      "Content-Type": "application/json"
+    }
+  })
+    .then((res) => res.json())
+    .then((data) => {
+      const orderId = data.orderId
+      window.location.href = "../html/confirmation.html" + "?orderId=" + orderId
+    })
+    .catch((err) => console.error(err))
+}
+
+// email invalide
+function isEmailInvalid() {
+  const email = document.querySelector("#email").value
+  const regex = /^[A-Za-z0-9+_.-]+@(.+)$/
+  if (regex.test(email) === false) {
+    alert("Merci de saisir un adresse mail valide")
+    return true
+  }
+  return false
+}
+
+// formulaire invalide
+function isFormInvalid() {
+  const form = document.querySelector(".cart__order__form")
+  const inputs = form.querySelectorAll("input")
+  inputs.forEach((input) => {
+    if (input.value === "") {
+      alert("Veuillez remplir tous les champs")
+      return true
+    }
+    return false
+  })
+}
+// faire la demande
+function makeRequestBody() {
+  const form = document.querySelector(".cart__order__form")
+  const firstName = form.elements.firstName.value
+  const lastName = form.elements.lastName.value
+  const address = form.elements.address.value
+  const city = form.elements.city.value
+  const email = form.elements.email.value
+  const body = {
+    contact: {
+      firstName: firstName,
+      lastName: lastName,
+      address: address,
+      city: city,
+      email: email
+    },
+    products: getIdsFromCache()
+  }
+  return body
+}
+
+// obtenir le  cahce formulaire
+function getIdsFromCache() {
+  const numberOfProducts = localStorage.length
+  const ids = []
+  for (let i = 0; i < numberOfProducts; i++) {
+    const key = localStorage.key(i)
+    const id = key.split("-")[0]
+    ids.push(id)
+  }
+  return ids
 }
